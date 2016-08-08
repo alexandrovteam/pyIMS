@@ -10,7 +10,6 @@ sudo add-apt-repository ppa:eugenwintersberger/pni
 sudo apt-get update
 sudo apt-get install hdf5-plugin-lz4
 
-
 note that the filter isn’t actually registered until the first dataset is access so won’t be reported by h5py until after then.
 
 Remember to restart terminal running python
@@ -129,7 +128,7 @@ def centroid_imzml(input_filename, output_filename, step=[], apodization=False, 
 
 
 def centroid_IMS(input_filename, output_filename, instrumentInfo={}, sharedDataInfo={}):
-    from pyMS.centroid_detection import gradient
+    from pyMSpec.centroid_detection import gradient
     # write out a IMS_centroid.hdf5 file
     sl = slFile(input_filename)
     n_total = np.shape(sl.spectra)[0]
