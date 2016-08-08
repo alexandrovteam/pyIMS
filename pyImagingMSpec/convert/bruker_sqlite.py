@@ -13,6 +13,7 @@ class Spectrum(object):
         self.x = row['XIndexPos']
         self.y = row['YIndexPos']
 
+
 def estimateThreshold(cursor):
     sp = Spectrum(cursor.execute("select * from Spectra").fetchone())
     coeff = sp.fwhms / sp.mzs**2  # fwhm is proportional to mz^2 for FTICR
@@ -21,7 +22,8 @@ def estimateThreshold(cursor):
         thr = 0  # there's nothing to fix, apparently
     return thr
 
-def convert(sqlite_fn, imzml_fn):
+
+def centroid_imzml(sqlite_fn, imzml_fn):
     with ImzMLWriter(imzml_fn) as w:
         peaks = sqlite3.connect(sqlite_fn)
         peaks.row_factory = sqlite3.Row
@@ -39,10 +41,11 @@ def convert(sqlite_fn, imzml_fn):
                 print "{}% complete".format(float(i) / count * 100.0)
         print "done"
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="convert centroids from Bruker sqlite to imzML")
     parser.add_argument('input', type=str, help="peaks.sqlite file")
-    parser.add_argument('output', type=str, help="cleaned imzML")
+    parser.add_argument('output', type=str, help="output filename (will guess conversion from extension)")
 
     args = parser.parse_args()
-    convert(args.input, args.output)
+    centroid_imzml(args.input, args.output)
