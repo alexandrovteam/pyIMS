@@ -1,6 +1,6 @@
 import h5py
 import sys
-import numpy as np
+import argparse
 
 from pyimzml.ImzMLWriter import ImzMLWriter
 
@@ -44,7 +44,7 @@ def imzml(input_filename, output_filename,smoothMethod="nosmooth",centroid=False
             if smoothMethod != []:
                     intensities = smooth_spectrum(mzs,intensities,smoothMethod)
             if centroid:
-                from pyMS import centroid_detection
+                from pyMSpec import centroid_detection
                 mzs, intensities, _ = centroid_detection.gradient(mzs,intensities, max_output=-1, weighted_bins=3)
             # write to file
             pos = (nrow - 1 - pos[1], pos[0], pos[2])
@@ -56,10 +56,10 @@ def imzml(input_filename, output_filename,smoothMethod="nosmooth",centroid=False
 
 
 def centroid_imzml(input_filename, output_filename,smoothMethod="nosmooth"):
-    raise NotImplementedError('Function removed: use h5.centroids(...centroid=True)')
+    imzml(input_filename, output_filename, smoothMethod=smoothMethod, centroid=True)
 
 def smooth_spectrum(mzs,intensities,smoothMethod):
-    import pyMS.smoothing as smoothing
+    import pyMSpec.smoothing as smoothing
     if smoothMethod == 'sg_smooth':
         intensities =  smoothing.sg_smooth(mzs,intensities,n_smooth=1)
     elif smoothMethod == 'apodization':
@@ -76,7 +76,8 @@ def hdf5(filename_in, filename_out,info,smoothMethod="nosmooth"):
     import numpy as np
     import datetime
     import scipy.signal as signal
-    from pyMS import centroid_detection
+    from pyMSpec import centroid_detection
+    import pyMSpec
     import sys
     #from IPython.display import display, clear_output
 
@@ -125,11 +126,11 @@ def hdf5(filename_in, filename_out,info,smoothMethod="nosmooth"):
         ## make new spectrum
         #mzs,intensities = nosmooth(Mzs,np.asarray(spot[spectraGroup]['Intensities']))
         if smoothMethod == 'nosmooth':
-            mzs,intensities = mzs,intensities = nosmooth(Mzs,np.asarray(spot[spectraGroup]['Intensities']))
+            mzs,intensities = mzs,intensities = pyMSpec.smoothig.nosmooth(Mzs,np.asarray(spot[spectraGroup]['Intensities']))
         elif smoothMethod == 'nosmooth':
-            mzs,intensities = sg_smooth(Mzs,np.asarray(spot[spectraGroup]['Intensities']))
+            mzs,intensities = pyMSpec.smoothig.sg_smooth(Mzs,np.asarray(spot[spectraGroup]['Intensities']))
         elif smoothMethod == 'apodization':
-            mzs,intensities = apodization(Mzs,np.asarray(spot[spectraGroup]['Intensities']))
+            mzs,intensities = pyMSpec.smoothig.apodization(Mzs,np.asarray(spot[spectraGroup]['Intensities']))
         else:
             raise ValueError('smooth method not one of: [nosmooth,nosmooth,apodization]')
         mzs_list, intensity_list, indices_list = centroid_detection.gradient(mzs,intensities, max_output=-1, weighted_bins=3)
@@ -164,4 +165,8 @@ def hdf5(filename_in, filename_out,info,smoothMethod="nosmooth"):
 
 
 if __name__ == '__main__':
-    centroidh5(sys.argv[1], sys.argv[1][:-3] + ".imzML")
+    parser = argparse.ArgumentParser(description="convert centroids from scils h5 to imzML")
+    parser.add_argument('input', type=str, help="peaks.sqlite file")
+    parser.add_argument('output', type=str, help="output filename (centroided imzml)")
+    args = parser.parse_args()
+    centroid_imzml(args.input, args.output)
