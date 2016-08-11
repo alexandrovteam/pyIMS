@@ -193,7 +193,7 @@ def isotope_image_correlation(images_flat, weights=None):
     """
     Function for calculating a weighted average measure of image correlation with the principle image.
 
-    :param images_flat: 2d array (or sequence of 1d arrays) of pixel intensities with shape (d1, d2) where d1 is the number of images and d2 is the number of pixels per image, i.e. :code:`images_flat[i]` is the i-th flattened image
+    :param images_flat: 2d array (or sequence of 1d arrays) of pixel intensities with shape (d1, d2) where d1 is the number of images and d2 is the number of pixels per image, i.e. :code:`images_flat[i]` is the i-th flattened image. For datasets where not every pixel within the bounding box contains data, this should only contain pixels where data was sampled from.
     :param weights: 1d array (or sequence) of weights with shape (d1 - 1), i.e :code:`weights[i]` is the weight to put on the correlation between the first and the i-th image. If omitted, all correlations are weighted equally
     :return: measure_value (zero if less than 2 images are given)
     :raise TypeError: if images are not 1d
@@ -203,17 +203,15 @@ def isotope_image_correlation(images_flat, weights=None):
         return 0
     if any(len(np.shape(im)) != 1 for im in images_flat):
         raise TypeError("images are not 1d")
-    else:
-        # first image mask
-        mask = images_flat[0] > 0
-        if mask.sum() < 2:
-            return 0
-        flt_images_flat = [img[mask] for img in images_flat]
-        # slightly faster to compute all correlations and pull the elements needed
-        iso_correlation = np.corrcoef(flt_images_flat)[1:, 0]
-        # when all values are the same (e.g. zeros) then correlation is undefined
-        iso_correlation[np.isinf(iso_correlation) | np.isnan(iso_correlation)] = 0
-        try:
-            return np.clip(np.average(iso_correlation, weights=weights),0,1)# coerce between [0 1]
-        except TypeError:
-            raise ValueError("Number of images is not equal to the number of weights + 1")
+    mask = images_flat[0] > 0
+    if mask.sum() < 2:
+        return 0
+    flt_images_flat = np.asarray(images_flat)
+    # slightly faster to compute all correlations and pull the elements needed
+    iso_correlation = np.corrcoef(flt_images_flat)[1:, 0]
+    # when all values are the same (e.g. zeros) then correlation is undefined
+    iso_correlation[np.isinf(iso_correlation) | np.isnan(iso_correlation)] = 0
+    try:
+        return np.clip(np.average(iso_correlation, weights=weights),0,1)# coerce between [0 1]
+    except TypeError:
+        raise ValueError("Number of images is not equal to the number of weights + 1")
