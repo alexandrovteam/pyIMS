@@ -203,8 +203,8 @@ def isotope_image_correlation(images_flat, weights=None):
         return 0
     if any(len(np.shape(im)) != 1 for im in images_flat):
         raise TypeError("images are not 1d")
-    mask = images_flat[0] > 0
-    if mask.sum() < 2:
+    not_null = images_flat[0] > 0
+    if not_null.sum() < 2:
         return 0
     flt_images_flat = np.asarray(images_flat)
     # slightly faster to compute all correlations and pull the elements needed
