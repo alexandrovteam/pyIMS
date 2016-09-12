@@ -37,6 +37,9 @@ def estimateThreshold(cursor):
 def convert(sqlite_fn, imzml_fn):
     with ImzMLWriter(imzml_fn) as w:
         peaks = sqlite3.connect(sqlite_fn)
+        coordinates = peaks.cursor().execute("select XIndexPos, YIndexPos from Spectra").fetchall()
+        xs, ys = zip(*coordinates)
+        min_x, min_y = min(xs), min(ys)
         peaks.row_factory = sqlite3.Row
         c = peaks.cursor()
         i = 0
@@ -46,7 +49,7 @@ def convert(sqlite_fn, imzml_fn):
             real_peaks = sp.fwhms / sp.mzs**2 > threshold
             mzs = sp.mzs[real_peaks]
             intensities = sp.intensities[real_peaks]
-            w.addSpectrum(mzs, intensities, (sp.x, sp.y))
+            w.addSpectrum(mzs, intensities, (sp.x - min_x, sp.y - min_y))
             i += 1
             if i % 1000 == 0:
                 print "{}% complete".format(float(i) / count * 100.0)
