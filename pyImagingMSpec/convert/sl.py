@@ -11,7 +11,7 @@ sudo apt-get update
 sudo apt-get install hdf5-plugin-lz4
 
 
-note that the filter isn’t actually registered until the first dataset is access so won’t be reported by h5py until after then.
+note that the filter isn't actually registered until the first dataset is access so won't be reported by h5py until after then.
 
 Remember to restart terminal running python
 
@@ -118,7 +118,7 @@ def centroid_imzml(input_filename, output_filename, step=[], apodization=False, 
                 from pyMSpec import smoothing
                 # todo - add to processing list in imzml
                 mzs, intensities = smoothing.apodization(mzs, intensities)
-            mzs_c, intensities_c, _ = gradient(mzs, intensities, min_intensity=min_intensity)
+            mzs_c, intensities_c, _ = gradient(mzs, intensities, weighted_bins=5, min_intensity=min_intensity)
             pos = coords[key]
             pos = (pos[0], nrow - 1 - pos[1], pos[2])
             imzml.addSpectrum(mzs_c, intensities_c, pos)

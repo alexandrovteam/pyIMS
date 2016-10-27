@@ -3,7 +3,7 @@ import scipy.stats
 from scipy import ndimage
 from scipy.optimize import curve_fit
 
-from imutils import nan_to_zero
+from .imutils import nan_to_zero
 
 # try to use cv2 for faster image processing
 try:
