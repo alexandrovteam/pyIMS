@@ -75,10 +75,10 @@ class ion_datacube():
             raise ValueError
         self.pixel_indices = pixel_indices
 
-    def xic_to_image(self, xic_index):
+    def xic_to_image(self, xic_index, padval=-1):
         xic = self.xic[xic_index].copy()
         # turn xic into an image
-        img = -1 + np.zeros(self.nRows * self.nColumns)
+        img = padval + np.zeros(self.nRows * self.nColumns)
         img[self.pixel_indices] = xic
         img = np.reshape(img, (self.nRows, self.nColumns))
         return img
