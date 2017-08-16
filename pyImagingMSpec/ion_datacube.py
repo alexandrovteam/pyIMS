@@ -55,16 +55,17 @@ class ion_datacube():
             # - coordinates can transformed directly into pixel indiceis
             # - subtract smallest value and divide by x & y step size
             pixel_indices = np.zeros(len(self.coords))
-            _coord = np.asarray(self.coords)
+            _coord = np.asarray(self.coords, dtype=float)
             _coord = np.around(_coord, 5)  # correct for numerical precision
             _coord = _coord - np.amin(_coord, axis=0)
+
             if self.step_size == []:  # no additional info, guess step size in xyz
                 self.step_size = np.zeros((3, 1))
                 for ii in range(0, 3):
                     self.step_size[ii] = np.mean(np.diff(np.unique(_coord[:, ii])))
-
+                self.step_size[np.isnan(self.step_size)] = 1
             # coordinate to pixels
-            _coord /= np.reshape(self.step_size, (3,))
+            _coord = np.asarray(_coord / np.reshape(self.step_size, (3,)),dtype=int)
             _coord_max = np.amax(_coord, axis=0)
             self.nColumns = _coord_max[1] + 1
             self.nRows = _coord_max[0] + 1
