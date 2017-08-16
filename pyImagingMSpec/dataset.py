@@ -30,7 +30,7 @@ class BaseDataset(object):
     def get_image(self):
         raise NotImplementedError
 
-    def rebin(self, n_spectra=100, max_width = 0.1, max_ups=1, max_spec=1):
+    def rebin(self, n_spectra=100, max_width = 0.1, max_ups=1):
         """
            Returns m/z bins formatted as a Pandas dataframe with the following columns:
             * left, right - bin boundaries;
@@ -40,7 +40,7 @@ class BaseDataset(object):
             * intensity - total intensity.
         """
         from rebinning import generate_mz_bin_edges
-        self.rebin_info = generate_mz_bin_edges(self, n_spectra=n_spectra, max_width=max_width, max_ups=max_ups, max_spec=max_spec)
+        self.rebin_info = generate_mz_bin_edges(self, n_spectra=n_spectra, max_width=max_width, max_ups=max_ups)
 
     def generate_histogram_axis(self, ppm=1.):
         print 'generating histogram axis for ppm {} [{}-{}]'.format(ppm, self.mz_min, self.mz_max)
