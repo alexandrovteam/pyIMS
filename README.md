@@ -1,4 +1,4 @@
-# README [![Documentation Status](https://readthedocs.org/projects/pyimagingmspec/badge/?version=latest)](http://pyimagingmspec.readthedocs.org/en/latest/?badge=latest)#
+# README [![Documentation Status](https://readthedocs.org/projects/pyimagingmspec/badge/?version=latest)](http://pyimagingmspec.readthedocs.org/en/latest/?badge=latest)
 
 This repository contains a Python library for processing imaging mass spectrometry data.
 
@@ -32,3 +32,7 @@ This library is currently includes
 ### Who do I talk to? ###
 If you're having difficulty running the pipeline get in touch with
 http://www.embl.de/research/units/scb/alexandrov/
+
+# License
+
+This project is licensed under Apache 2.0 license.

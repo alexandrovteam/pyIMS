@@ -3,7 +3,7 @@ import scipy.stats
 from scipy import ndimage
 from scipy.optimize import curve_fit
 
-from imutils import nan_to_zero
+from .imutils import nan_to_zero
 
 # try to use cv2 for faster image processing
 try:
@@ -31,7 +31,7 @@ def measure_of_chaos(im, nlevels, overwrite=True, statistic=None):
     :rtype: float
     :raises ValueError: if nlevels <= 0 or q_val is an invalid percentile or an unknown interp value is used
     """
-    statistic = statistic or _default_measure
+    statistic = statistic or  _default_measure
     # don't process empty images
     if np.sum(im) <= 0:
         return np.nan
@@ -123,7 +123,31 @@ def _default_measure(num_objs, sum_notnull):
         return np.nan
 
     sum_vals = float(np.sum(num_objs))
-    return 1 - sum_vals / (sum_notnull * nlevels)
+    return 1. - sum_vals / (sum_notnull * nlevels)
+
+
+def _sigmoid_scaling(num_objs, sum_notnull):
+    """
+    Calculate a statistic for the object counts.
+
+    :param num_objs: number of objects found in each level, respectively
+    :param float sum_notnull: sum of all non-zero elements in the original array (positive number)
+    :return: the calculated value between 0 and 1, bigger is better
+    """
+    num_objs = np.asarray(num_objs, dtype=np.int_)
+    nlevels = len(num_objs)
+    if sum_notnull <= 0:
+        raise ValueError("sum_notnull must be positive")
+    if min(num_objs) < 0:
+        raise ValueError("cannot have negative object counts")
+    if nlevels < 1:
+        raise ValueError("array of object counts is empty")
+    if np.unique(num_objs).shape[0] <= 1:
+        return float(np.nan)
+    raw_measure = 1.-(np.mean(num_objs)-1)/(sum_notnull/4)
+    scaled_measure = 1/(1+np.exp(-(raw_measure-.985)*200))
+    scaled_measure = np.round(scaled_measure, decimals=5)
+    return float(scaled_measure)
 
 
 # this updates the scoring function from the main algorithm.
@@ -154,7 +178,7 @@ def _fit(num_objs, _):
     popt, pcov = curve_fit(func, np.linspace(0, 1, nlevels), cdf_curve, p0=(0.5, 0.05))
     pdf_fitted = func(np.linspace(0, 1, nlevels), popt[0], popt[1])
     # return 1-np.sqrt(np.sum((pdf_fitted - cdf_curve)**2))
-    return 1 - np.sum(np.abs((pdf_fitted - cdf_curve)))
+    return float(1. - np.sum(np.abs((pdf_fitted - cdf_curve))))
 
 
 def isotope_pattern_match(images_flat, theor_iso_intensities):
@@ -203,8 +227,8 @@ def isotope_image_correlation(images_flat, weights=None):
         return 0
     if any(len(np.shape(im)) != 1 for im in images_flat):
         raise TypeError("images are not 1d")
-    mask = images_flat[0] > 0
-    if mask.sum() < 2:
+    not_null = images_flat[0] > 0
+    if not_null.sum() < 2:
         return 0
     flt_images_flat = np.asarray(images_flat)
     # slightly faster to compute all correlations and pull the elements needed
