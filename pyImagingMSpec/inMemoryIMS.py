@@ -9,11 +9,11 @@ from pyMSpec.mass_spectrum import mass_spectrum
 from pyImagingMSpec.ion_datacube import ion_datacube
 
 class inMemoryIMS():
-    def __init__(self, filename, min_mz=0., max_mz=np.inf, min_int=0., index_range=[],cache_spectra=True,do_summary=True,norm='none', norm_args={}, spectrum_type='centroids'):
+    def __init__(self, filename, min_mz=0., max_mz=np.inf, min_int=0., index_range=[],cache_spectra=True,do_summary=True,norm='none', norm_args={}, spectrum_type='centroids', ppm=3.):
         file_size = os.path.getsize(filename)
-        self.load_file(filename, min_mz, max_mz, min_int, index_range=index_range,cache_spectra=cache_spectra,do_summary=do_summary,norm=norm, norm_args=norm_args, spectrum_type=spectrum_type)
+        self.load_file(filename, min_mz, max_mz, min_int, index_range=index_range,cache_spectra=cache_spectra,do_summary=do_summary,norm=norm, norm_args=norm_args, spectrum_type=spectrum_type, ppm=ppm)
 
-    def load_file(self, filename, min_mz=0, max_mz=np.inf, min_int=0, index_range=[],cache_spectra=True,do_summary=True,norm=[], norm_args={}, spectrum_type='centroids'):
+    def load_file(self, filename, min_mz=0, max_mz=np.inf, min_int=0, index_range=[],cache_spectra=True,do_summary=True,norm=[], norm_args={}, spectrum_type='centroids', ppm=3.):
         # parse file to get required parameters
         # can use thin hdf5 wrapper for getting data from file
         self.file_dir, self.filename = os.path.split(filename)
@@ -42,6 +42,7 @@ class inMemoryIMS():
         self.cube_pixel_indices = cube.pixel_indices
         self.cube_n_row, self.cube_n_col = cube.nRows, cube.nColumns
         self.histogram_mz_axis = {}
+        self.ppm=ppm
         self.mz_min = 9999999999999.
         self.mz_max = 0.
         self.spectrum_type = spectrum_type #todo this should be read for imzml files, not coded as an input
@@ -261,20 +262,24 @@ class inMemoryIMS():
         ppm_mult = ppm * 1e-6
         mz_current = self.mz_min
         mz_list = [mz_current,]
+        ii=0
         while mz_current <= self.mz_max:
             mz_current = mz_current + mz_current * ppm_mult
             mz_list.append(mz_current)
+            ii+=1
         self.histogram_mz_axis[ppm] = mz_list
 
     def get_histogram_axis(self, ppm=1.):
         try:
-            mz_axis = self.histogram_mz_axis[ppm]
+            _ = self.histogram_mz_axis[ppm]
         except KeyError as e:
             print 'generating histogram axis for ppm {}'.format(ppm)
             self.generate_histogram_axis(ppm=ppm)
         return self.histogram_mz_axis[ppm]
 
-    def generate_summary_spectrum(self, summary_type='mean', ppm=1., hist_axis = []):
+    def generate_summary_spectrum(self, summary_type='mean', ppm=None, hist_axis = []):
+        if not ppm:
+            ppm = self.ppm
         if hist_axis == []:
             hist_axis = self.get_histogram_axis(ppm=ppm)
         # calcualte mean along some m/z axis
@@ -311,3 +316,30 @@ class inMemoryIMS():
         data_out=self.empty_datacube()
         data_out.add_xic(np.asarray(getattr(self, summary_func)), [0], [0])
         return data_out
+
+    def correlation(self, basemz, mz_list=None):
+        if not mz_list:
+            from pyMSpec.centroid_detection import gradient
+            mean_spec = self.generate_summary_spectrum(ppm=self.ppm)
+            mz_list = gradient(mean_spec[0], mean_spec[1], min_intensity=3*mean_spec[1][mean_spec[1]>0].min())[0]
+        baseim = self.get_ion_image(basemz, self.ppm).xic[0]
+        corr = np.zeros(len(mz_list))
+        for ii, mz in enumerate(mz_list):
+            ionim = self.get_ion_image(mz, self.ppm)
+            corr[ii] = np.corrcoef(baseim, ionim.xic[0])[0][1]
+        return mz_list, corr
+
+    def rebin(self):
+        from pyMSpec.centroid_detection import gradient
+        ms = self.generate_summary_spectrum()
+        p = gradient(ms[0], ms[1], max_output=2500)
+        mzs = p[0]
+        return np.asarray(self.get_ion_image((mzs[1:]+mzs[0:-1])/2.,
+                                  tols=mzs[1:]-mzs[0:-1],
+                                  tol_type='abs').xic)
+
+    def segment(self):
+        from .segmentation import dbscan
+        X = self.rebin()
+        return dbscan(X)
+
