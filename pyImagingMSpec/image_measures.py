@@ -18,7 +18,6 @@ except (ImportError, AttributeError):
 def measure_of_chaos(im, nlevels, overwrite=True, statistic=None):
     """
     Compute a measure for the spatial chaos in given image using the level sets method.
-
     :param im: 2d array
     :param nlevels: how many levels to use
     :type nlevels: int
@@ -70,7 +69,6 @@ def _dilation_and_erosion(im, dilate_mask=None, erode_mask=None):
 def _level_sets(im_clean, nlevels, prep=_dilation_and_erosion):
     """
     Divide the image into level sets and count the number of objects in each of them.
-
     :param im_clean: 2d array with :code:`im_clean.max() == 1`
     :param int nlevels: number of levels to search for objects (positive integer)
     :param prep: callable that takes a 2d array as its only argument and returns a 2d array
@@ -106,7 +104,6 @@ def _level_sets(im_clean, nlevels, prep=_dilation_and_erosion):
 def _default_measure(num_objs, sum_notnull):
     """
     Calculate a statistic for the object counts.
-
     :param num_objs: number of objects found in each level, respectively
     :param float sum_notnull: sum of all non-zero elements in the original array (positive number)
     :return: the calculated value between 0 and 1, bigger is better
@@ -154,7 +151,6 @@ def _sigmoid_scaling(num_objs, sum_notnull):
 def _fit(num_objs, _):
     """
     An alternative statistic for measure_of_chaos.
-
     :param num_objs: number of objects found in each level, respectively
     :param _: unused dummy parameter, kept for signature compatibility with _default_measure
     :return: the calculated value
@@ -184,7 +180,6 @@ def _fit(num_objs, _):
 def isotope_pattern_match(images_flat, theor_iso_intensities):
     """
     This function calculates a match between a list of isotope ion images and a theoretical intensity vector.
-
     :param images_flat: 2d array (or sequence of 1d arrays) of pixel intensities with shape (d1, d2) where d1 is the number of images and d2 is the number of pixels per image, i.e. :code:`images_flat[i]` is the i-th flattened image
     :param theor_iso_intensities: 1d array (or sequence) of theoretical isotope intensities with shape d1, i.e :code:`theor_iso_intensities[i]` is the theoretical isotope intensity corresponding to the i-th image
     :return: measure value between 0 and 1, bigger is better
@@ -216,7 +211,6 @@ def isotope_pattern_match(images_flat, theor_iso_intensities):
 def isotope_image_correlation(images_flat, weights=None):
     """
     Function for calculating a weighted average measure of image correlation with the principle image.
-
     :param images_flat: 2d array (or sequence of 1d arrays) of pixel intensities with shape (d1, d2) where d1 is the number of images and d2 is the number of pixels per image, i.e. :code:`images_flat[i]` is the i-th flattened image. For datasets where not every pixel within the bounding box contains data, this should only contain pixels where data was sampled from.
     :param weights: 1d array (or sequence) of weights with shape (d1 - 1), i.e :code:`weights[i]` is the weight to put on the correlation between the first and the i-th image. If omitted, all correlations are weighted equally
     :return: measure_value (zero if less than 2 images are given)
