@@ -172,14 +172,13 @@ def recal(imzml_out_fn, imzml, fit, m=3):
             imzml_out.addSpectrum(mzs, intensities, coords)
 
 def robust_recalibration(imzml_fn, imzml_fn_r, ref_formula, numpeaks, smoothing, x0=[1, 1]):
-    print imzml_fn
     import os
     imzml = ImzMLParser(imzml_fn)
-    basename = os.path.splitext(os.path.split(imzml_fn)[1])[0]
     # calculate fit parameters with varying numbers of peaks
     fit = fit_dataset(imzml, ref_formula, x0=x0, max_delta_ppm=numpeaks)
     # do fit with different spatial smoothing
     recal(imzml_fn_r, imzml, fit, m=smoothing)
+    return fit
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="recalibrate centroided imaging MS file")
