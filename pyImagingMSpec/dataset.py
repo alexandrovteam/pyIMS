@@ -2,6 +2,7 @@ import os
 import numpy as np
 import bisect
 from pyImagingMSpec.ion_datacube import ion_datacube
+from pyMSpec import instrument
 
 def imsDataset(filename):
     def clean_ext(ext):
@@ -11,7 +12,7 @@ def imsDataset(filename):
     if clean_ext(ext) in KNOWN_EXT:
         return KNOWN_EXT[clean_ext(ext)](filename)
     else:
-        print KNOWN_EXT,
+        print(KNOWN_EXT)
         raise IOError('file extention {} not known'.format(clean_ext(ext)))
 
 
@@ -23,6 +24,7 @@ class BaseDataset(object):
         self.coordinates = []
         self.histogram_mz_axis = {}
         self.step_size = [] #pixel dimension
+        self.instrument = None
 
     def get_spectrum(self):
         raise NotImplementedError
@@ -97,6 +99,18 @@ class BaseDataset(object):
         return data_out
 
 
+    def set_instrument_type(self, instrument_type, resolving_power, at_mz):
+        self.instrument = getattr(instrument, instrument_type)(at_mz=at_mz, resolving_power=resolving_power)
+
+    def align_peaks(self):
+        if not self.instrument:
+            raise IOError("Instrument type not set, call instrument.set_instrument_type()")
+        raise NotImplementedError
+
+    def tic(self):
+        raise NotImplementedError
+
+
 class ImzmlDataset(BaseDataset):
     def __init__(self, filename):
         from pyimzml.ImzMLParser import ImzMLParser
@@ -114,12 +128,12 @@ class ImzmlDataset(BaseDataset):
         return im
 
 class InMemoryDataset(BaseDataset):
-    def __init__(self, filename):
+    def __init__(self, filename, min_mz=0, max_mz=np.inf, min_int=0):
         super(InMemoryDataset, self).__init__(filename)
         outOfMemoryDataset = imsDataset(filename)
-        self.load_file(outOfMemoryDataset)
+        self.load_file(outOfMemoryDataset, min_mz, max_mz, min_int)
 
-    def load_file(self, outOfMemoryDataset, min_mz=0, max_mz=np.inf, min_int=0, index_range=[], spectrum_type='centroids'):
+    def load_file(self, outOfMemoryDataset, min_mz, max_mz, min_int, index_range=[], spectrum_type='centroids'):
         # parse file to get required parameters
         # can use thin hdf5 wrapper for getting data from file
         self.file_dir, self.filename = os.path.split(outOfMemoryDataset.filename)
@@ -135,8 +149,6 @@ class InMemoryDataset(BaseDataset):
         self.mz_list = []
         self.count_list = []
         self.idx_list = []
-        self.mz_min = 0.
-        self.mz_max = np.inf
         for ii in range(len(self.coordinates)):
             # load spectrum, keep values gt0 (shouldn't be here anyway)
             mzs, counts = outOfMemoryDataset.get_spectrum(ii)
@@ -147,16 +159,11 @@ class InMemoryDataset(BaseDataset):
             counts = counts[valid]
             mzs = mzs[valid]
             # update min/max
-            if not len(mzs) == 0:
-                if mzs[0] < self.mz_min:
-                    self.mz_min = mzs[0]
-                if mzs[-1] > self.mz_max:
-                    self.mz_max = mzs[-1]
             # append ever-growing lists (should probably be preallocated or piped to disk and re-loaded)
             self.mz_list.append(mzs)
             self.count_list.append(counts)
             self.idx_list.append(np.ones(len(mzs), dtype=int) * ii)
-        print 'loaded spectra'
+        print('loaded spectra')
         self.mz_list = np.concatenate(self.mz_list)
         self.count_list = np.concatenate(self.count_list)
         self.idx_list = np.concatenate(self.idx_list)
@@ -165,11 +172,15 @@ class InMemoryDataset(BaseDataset):
         self.mz_list = self.mz_list[mz_order]
         self.count_list = self.count_list[mz_order]
         self.idx_list = self.idx_list[mz_order]
+        self.mz_min = self.mz_list[0]
+        self.mz_max = self.mz_list[-1]
         # split binary searches into two stages for better locality
         self.window_size = 1024
         self.mz_sublist = self.mz_list[::self.window_size].copy()
-        print 'file loaded'
+        print('file loaded')
         self.outOfMemoryDataset = outOfMemoryDataset
+        self.tic = np.bincount(self.idx_list, weights=self.count_list, minlength=self.idx_list.max() + 1)
+
 
     def get_spectrum(self, index):
         #mzs = []
@@ -214,7 +225,7 @@ class InMemoryDataset(BaseDataset):
             idx_vect = self.idx_list[il:ir]
             count_vect = self.count_list[il:ir]
             # bin vectors
-            ion_vect = np.bincount(idx_vect, weights=count_vect, minlength=self.max_index + 1)
+            ion_vect = np.bincount(idx_vect, weights=count_vect, minlength=self.idx_list.max() + 1)
             data_out.add_xic(ion_vect, [mz], [tol])
         return data_out
 
@@ -249,3 +260,4 @@ class InMemoryDataset(BaseDataset):
         data_out = self.empty_datacube()
         data_out.add_xic(np.asarray(getattr(self, summary_func)), [0], [0])
         return data_out
+
