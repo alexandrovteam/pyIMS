@@ -72,8 +72,7 @@ class ion_datacube():
             pixel_indices = _coord[:, 0] * self.nColumns + _coord[:, 1]
             pixel_indices = pixel_indices.astype(np.int32)
         else:
-            print 'transform type not recognised'
-            raise ValueError
+            raise ValueError('transform type not recognised')
         self.pixel_indices = pixel_indices
 
     def xic_to_image(self, xic_index, padval=-1):
