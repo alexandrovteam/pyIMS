@@ -59,3 +59,11 @@ Example config file
 ```
 If data_folder or data_name are missing from the json file, 
 the exporter will assume the datasets are in the same location and start with the same name.
+
+If the pixel dimensions in *x* and *y* are not equal then images generated from the imzML coordinates
+ will need to have the correct aspect ratio set during visualisation. 
+The raw data coordinates are stored in micrometers under *userParam* elements for each spectrum  
+``` 
+<userParam name="xCoord" value=""/>
+<userParam name="yCoord" value=""/>
+```
