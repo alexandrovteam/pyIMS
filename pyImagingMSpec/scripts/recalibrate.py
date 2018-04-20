@@ -6,10 +6,15 @@ from scipy.optimize import least_squares
 from pyimzml.ImzMLParser import ImzMLParser
 from pyimzml.ImzMLWriter import ImzMLWriter
 from scipy.signal import medfilt2d
+import logging
+
+def fit_fun(x, t):
+    v = np.polyval(x, t)
+    #v = x[0]+x[1]*t**x[2]
+    return v
 
 def fun(x, t, y):
-    e = np.polynomial.polynomial.polyval(t,x) - y
-    #e = x[0]+x[1]*t+x[2]*t**2 - y
+    e = fit_fun(x, t) - y
     return e
 
 
@@ -66,7 +71,7 @@ def get_delta(ref_mzs, mzs, intensities, max_delta_ppm=20.):
         # ix = find_max_of_nearest(mzs, intensities, mz, n=3)
         ix = find_max_in_range(mzs, intensities, mz, delta_mz)
         if ix:
-            delta.append(1e6*(mz - mzs[ix])/mz)
+            delta.append(1e6 * (mzs[ix] - mz) / mz)
             #delta.append(mz-mzs[ix])
         else:
             delta.append(np.nan)
@@ -74,8 +79,7 @@ def get_delta(ref_mzs, mzs, intensities, max_delta_ppm=20.):
 
 
 def generate_data(t, x, noise=0, n_outliers=0, random_state=30):
-#    y = x[0]+x[1]*t+x[2]*t**2
-    y = np.polynomial.polynomial.polyval(t,x)
+    y = fit_fun(x, t)
     rnd = np.random.RandomState(random_state)
     error = noise * rnd.randn(t.size)
     outliers = rnd.randint(0, t.size, n_outliers)
@@ -83,20 +87,29 @@ def generate_data(t, x, noise=0, n_outliers=0, random_state=30):
     return y + error
 
 
-def fit_spectrum(mzs, intensities, ref_mzs, ref_pct, max_delta_ppm, mz_min, mz_max, x0=[1, 1, 1],
-                 weight_by_occurance=True):
+def fit_spectrum(mzs, intensities, ref_mzs, ref_pcts, max_delta_ppm, mz_min, mz_max, x0=[1, 1, 1],
+                 weight_by_occurance=True, stabilise=True, intensity_threshold=0):
+
+    mzs, intensities = map(lambda x: x[intensities>intensity_threshold], [mzs, intensities])
+
     delta = get_delta(ref_mzs, mzs, intensities, max_delta_ppm=max_delta_ppm)
-    _x = [mz_min, mz_max]
-    _y = [0, 0]
-    for ref_mz, ref_pct, dt in zip(ref_mzs, ref_pct.astype('int'), delta):
+    ref_mzs, ref_pcts, delta = map(lambda x:x[~np.isnan(delta)], [ref_mzs, ref_pcts, delta])
+    #print(delta)
+    if stabilise:
+        _x = [mz_min, mz_max]
+        _y = [0, 0]
+    else:
+        _x = []
+        _y = []
+    for ref_mz, ref_pct, dt in zip(ref_mzs, ref_pcts.astype('int'), delta):
         if not weight_by_occurance:
             ref_pct = 1
         for ii in np.arange(ref_pct):
             _x.append(ref_mz)
             _y.append(dt)
     _x, _y = map(np.asarray, (_x, _y))
-    _r = least_squares(fun, x0, loss='soft_l1', f_scale=0.1, args=(_x[np.abs(_y) < 500], _y[np.abs(_y) < 500]))
-    return _r
+    _r = least_squares(fun, x0, loss='huber', f_scale=0.1, args=(_x, _y))
+    return _r, (_x, _y)
 
 
 def recalibrate_spectrum(mzs, r):
@@ -142,7 +155,7 @@ def fit_dataset(imzml, ref_formula, x0=[1,1,1], max_delta_ppm=3., mz_min=200, mz
     fit = []
     for spec_ix, coords in enumerate(imzml.coordinates):
         if spec_ix%500==0:
-            print spec_ix/float(len(imzml.coordinates))
+            logging.debug(spec_ix/float(len(imzml.coordinates)))
         spec = imzml.getspectrum(index=spec_ix)
         mzs, intensities = np.asarray(spec[0]), np.asarray(spec[1])
         _r = fit_spectrum(mzs, intensities, ref_formula.mz, ref_formula.percent, max_delta_ppm, mz_min, mz_max, x0)
@@ -165,7 +178,7 @@ def recal(imzml_out_fn, imzml, fit, m=3):
     with ImzMLWriter(imzml_out_fn) as imzml_out:
         for spec_ix, coords in enumerate(imzml.coordinates):
             if spec_ix%500==0:
-                print spec_ix/float(len(imzml.coordinates))
+                logging.debug(spec_ix/float(len(imzml.coordinates)))
             mzs, intensities = imzml.getspectrum(index=spec_ix)
             mzs = np.asarray(mzs)
             mzs = recalibrate_spectrum(mzs, im3[coords[1]-1, coords[0]-1, :])

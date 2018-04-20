@@ -1,4 +1,5 @@
 import numpy as np
+from pyImagingMSpec.utils import find_nearest
 
 def get_peak_in_bin_idx(mzs, edge_lower, edge_upper):
     mz_count = np.arange(np.searchsorted(mzs, edge_lower), np.searchsorted(mzs, edge_upper, side='right'), dtype=int)
@@ -128,12 +129,79 @@ def nn_aggreagation(mzs, specix, max_width):
             possible_cluster_ix = possible_cluster_ix[unvisited[possible_cluster_ix]]
         cluster_count +=1
         if cluster_count % 1000 == 0:
-            print mz, cluster_count
+            print (mz, cluster_count)
         if mz == mzs[-1]:
             break
-            print cluster_count
+            print(cluster_count)
     return cluster_ix
 
+
+def scaled_dist(inst, mzs, mz):
+    return inst.resolving_power_at_mz(mz) * np.abs(np.sqrt(mzs) - np.sqrt(mz))
+#    return np.abs(mzs-mz)
+
+def get_core(x, min_samples, eps, inst):
+    """
+    param x: list of m/z values (sorted)
+    """
+    cix = 1
+    mz_class = np.zeros(x.shape, dtype=int)
+    for ii, mz in enumerate(x):
+        ix_l = np.max([0, ii - min_samples])
+        ix_u = np.min([x.shape[0]-1, ii + min_samples])
+        if np.sum(scaled_dist(inst, x[ix_l:ix_u], mz) < eps) > min_samples:  # is core sample
+            mz_class[ii] = cix
+        elif (ii > 0) & (mz_class[ii - 1] > 0):
+            cix += 1
+    return mz_class
+
+
+def get_core_centroids(x, y, min_samples, eps, inst):
+    """
+    param x: list of m/z values (sorted)
+    """
+    means = []
+    ints = []
+
+    last_class = 0
+    buff_mz = []
+    buff_i = []
+    for ii, (mz, i) in enumerate(zip(x,y)):
+        ix_l = np.max([0, ii - min_samples])
+        ix_u = np.min([x.shape[0]-1, ii + min_samples])
+        if np.sum(scaled_dist(inst, x[ix_l:ix_u], mz) < eps) > min_samples:  # is core sample
+            buff_mz.append(mz)
+            buff_i.append(i)
+            last_class = 1
+        elif (ii > 0) & last_class > 0:
+            means.append( np.average(buff_mz, weights=buff_i) )
+            ints.append(np.mean(buff_i))
+            buff_mz = []
+            buff_i = []
+            last_class = 0
+    return means, ints
+
+
+def assign_edges(core_value, core_class, edge, eps, inst):
+    idxs = np.searchsorted(core_value, edge)
+    # print(edge.shape[0], idxs.shape, core_value.shape, idxs.max())
+    idxs[idxs == core_value.shape[0]] -= 1
+    idxs[(np.abs(edge - core_value[idxs - 1])) < (np.abs(edge - core_value[idxs]))] -= 1
+    edge_class = []
+    for idx, e in zip(idxs, edge):
+        cv = core_value[idx]
+        cc = core_class[idx]
+        if scaled_dist(inst, cv, e) < eps:
+            edge_class.append(cc)
+        else:
+            edge_class.append(0)
+    return edge_class
+
+
+def db_scan_1d_centroids(x, y, min_samples, eps, inst):
+    centroids = get_core_centroids(x, y, min_samples, eps, inst)
+    #mz_class[mz_class == 0] = assign_edges(x[mz_class > 0], mz_class[mz_class > 0], x[mz_class == 0], eps)
+    return centroids
 
 
 
