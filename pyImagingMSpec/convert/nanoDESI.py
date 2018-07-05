@@ -65,7 +65,7 @@ class DESIDataset():
         else:
             self._dr = os.path.split(json_fn)[0]
         if 'data_name' in j:
-            self._ds_name = j['ds_name']
+            self._ds_name = j['data_name']
         else:
             self._ds_name = os.path.splitext(os.path.split(json_fn)[1])[0]
 
